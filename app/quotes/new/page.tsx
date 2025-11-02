@@ -104,6 +104,11 @@ function CreateQuoteForm() {
       const userDealerId = typeof user.dealer === 'object' ? user.dealer._id : user.dealer;
       
       const dealerCustomers = allCustomers.filter((customer: any) => {
+        // If customer doesn't have ownerDealer (old data), show it to all dealers
+        if (!customer.ownerDealer) {
+          return true;
+        }
+        
         const customerDealerId = typeof customer.ownerDealer === 'object' 
           ? customer.ownerDealer._id 
           : customer.ownerDealer;
@@ -115,6 +120,7 @@ function CreateQuoteForm() {
         userDealerId,
         totalCustomers: allCustomers.length,
         dealerCustomers: dealerCustomers.length,
+        customersWithoutDealer: allCustomers.filter((c: any) => !c.ownerDealer).length,
       });
 
       setFilteredCustomers(dealerCustomers);

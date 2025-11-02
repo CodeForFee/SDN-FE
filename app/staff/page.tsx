@@ -37,6 +37,8 @@ import { authService, RegisterRequest } from "@/services/authService";
 import { userService } from "@/services/userService";
 import { dealerService, Dealer } from "@/services/dealerService";
 import { Plus } from "lucide-react";
+import { useFormik } from "formik";
+import { staffSchema } from "@/validations";
 
 export default function StaffPage() {
   const { user } = useAuthStore();
@@ -53,12 +55,45 @@ export default function StaffPage() {
         : user.dealer?._id
       : undefined;
 
-  const [formData, setFormData] = useState<RegisterRequest>({
-    email: "",
-    password: "",
-    role: "DealerStaff",
-    profile: { name: "", phone: "" },
-    dealer: currentDealerId,
+  const formik = useFormik({
+    initialValues: {
+      email: "",
+      password: "",
+      role: "DealerStaff" as "DealerStaff" | "DealerManager" | "EVMStaff" | "Admin",
+      profile: { name: "" },
+      dealer: currentDealerId || "",
+    },
+    validationSchema: staffSchema,
+    onSubmit: async (values) => {
+      // Nếu là DealerManager thì chỉ tạo DealerStaff của dealer mình
+      if (user?.role === "DealerManager") {
+        values.role = "DealerStaff";
+        values.dealer = currentDealerId || "";
+      }
+
+      if (!values.dealer && ['DealerStaff', 'DealerManager'].includes(values.role)) {
+        toast.error("Please select a dealer");
+        return;
+      }
+
+      try {
+        await authService.register(values as RegisterRequest);
+        toast.success("Staff member created successfully");
+        setOpen(false);
+        formik.resetForm({
+          values: {
+            email: "",
+            password: "",
+            role: "DealerStaff",
+            profile: { name: "" },
+            dealer: currentDealerId || "",
+          },
+        });
+        fetchStaff();
+      } catch (error: any) {
+        toast.error(error.response?.data?.message || "Operation failed");
+      }
+    },
   });
 
   useEffect(() => {
@@ -91,37 +126,6 @@ export default function StaffPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Nếu là DealerManager thì chỉ tạo DealerStaff của dealer mình
-    if (user?.role === "DealerManager") {
-      formData.role = "DealerStaff";
-      formData.dealer = currentDealerId;
-    }
-
-    if (!formData.dealer) {
-      toast.error("Please select a dealer");
-      return;
-    }
-
-    try {
-      await authService.register(formData);
-      toast.success("Staff member created successfully");
-      setOpen(false);
-      setFormData({
-        email: "",
-        password: "",
-        role: "DealerStaff",
-        profile: { name: "", phone: "" },
-        dealer: currentDealerId,
-      });
-      fetchStaff();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Operation failed");
-    }
-  };
-
   if (loading) {
     return (
       <MainLayout>
@@ -150,62 +154,58 @@ export default function StaffPage() {
             </DialogTrigger>
 
             <DialogContent className="rounded-2xl max-w-lg">
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={formik.handleSubmit}>
                 <DialogHeader>
                   <DialogTitle>Create New Staff Member</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label>Email</Label>
+                    <Label>Email *</Label>
                     <Input
                       type="email"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                      required
+                      name="email"
+                      value={formik.values.email}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
                     />
+                    {formik.touched.email && formik.errors.email && (
+                      <p className="text-sm text-red-500">{formik.errors.email}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Password</Label>
+                    <Label>Password *</Label>
                     <Input
                       type="password"
-                      value={formData.password}
-                      onChange={(e) =>
-                        setFormData({ ...formData, password: e.target.value })
-                      }
-                      required
+                      name="password"
+                      value={formik.values.password}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
                     />
+                    {formik.touched.password && formik.errors.password && (
+                      <p className="text-sm text-red-500">{formik.errors.password}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Name</Label>
+                    <Label>Name *</Label>
                     <Input
-                      value={formData.profile?.name || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          profile: {
-                            ...formData.profile,
-                            name: e.target.value,
-                          },
-                        })
-                      }
+                      name="profile.name"
+                      value={formik.values.profile?.name || ""}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
                     />
+                    {formik.touched.profile?.name && formik.errors.profile?.name && (
+                      <p className="text-sm text-red-500">{formik.errors.profile.name}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Role</Label>
+                    <Label>Role *</Label>
                     <Select
-                      value={formData.role}
-                      onValueChange={(value) =>
-                        setFormData({
-                          ...formData,
-                          role: value as RegisterRequest["role"],
-                        })
-                      }
+                      value={formik.values.role}
+                      onValueChange={(value) => formik.setFieldValue('role', value)}
                       disabled={user?.role === "DealerManager"} // DealerManager không thể chọn role khác
                     >
                       <SelectTrigger>
@@ -224,16 +224,17 @@ export default function StaffPage() {
                         )}
                       </SelectContent>
                     </Select>
+                    {formik.touched.role && formik.errors.role && (
+                      <p className="text-sm text-red-500">{formik.errors.role}</p>
+                    )}
                   </div>
 
                   {user?.role !== "DealerManager" ? (
                     <div className="space-y-2">
-                      <Label>Dealer</Label>
+                      <Label>Dealer {['DealerStaff', 'DealerManager'].includes(formik.values.role) && '*'}</Label>
                       <Select
-                        value={formData.dealer || ""}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, dealer: value })
-                        }
+                        value={formik.values.dealer || ""}
+                        onValueChange={(value) => formik.setFieldValue('dealer', value)}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select dealer" />
@@ -246,6 +247,9 @@ export default function StaffPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {formik.touched.dealer && formik.errors.dealer && (
+                        <p className="text-sm text-red-500">{formik.errors.dealer}</p>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -261,15 +265,20 @@ export default function StaffPage() {
                   )}
                 </div>
 
-                <DialogFooter className="flex justify-end gap-2">
+                <DialogFooter>
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setOpen(false)}
+                    onClick={() => {
+                      setOpen(false);
+                      formik.resetForm();
+                    }}
                   >
                     Cancel
                   </Button>
-                  <Button type="submit">Create</Button>
+                  <Button type="submit" disabled={formik.isSubmitting}>
+                    {formik.isSubmitting ? "Creating..." : "Create Staff"}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
