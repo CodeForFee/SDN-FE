@@ -13,6 +13,7 @@ import { quoteService, CreateQuoteRequest, QuoteItem } from '@/services/quoteSer
 import { customerService, Customer } from '@/services/customerService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { vehicleColorService, VehicleColor } from '@/services/vehicleColorService';
+import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, X } from 'lucide-react';
 import Link from 'next/link';
@@ -28,8 +29,10 @@ function CreateQuoteForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const vehicleId = searchParams?.get('vehicle');
+  const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [colors, setColors] = useState<VehicleColor[]>([]);
   const [items, setItems] = useState<QuoteItem[]>([]);
@@ -57,7 +60,9 @@ function CreateQuoteForm() {
           vehicleService.getVehicles(),
           vehicleColorService.list(),
         ]);
-        setCustomers(customersData);
+        
+        
+        setAllCustomers(customersData);
         setVehicles(vehiclesData);
         setColors(colorsData);
 
@@ -75,10 +80,50 @@ function CreateQuoteForm() {
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
+        toast.error('Failed to load data');
       }
     };
     fetchData();
   }, [vehicleId]);
+
+  // Filter customers by dealer for DealerStaff and DealerManager
+  useEffect(() => {
+    if (!user || !allCustomers.length) {
+      setFilteredCustomers([]);
+      return;
+    }
+
+    // Admin and EVMStaff can see all customers
+    if (user.role === 'Admin' || user.role === 'EVMStaff') {
+      setFilteredCustomers(allCustomers);
+      return;
+    }
+
+    // DealerStaff and DealerManager only see customers from their dealer
+    if (user.role === 'DealerStaff' || user.role === 'DealerManager') {
+      const userDealerId = typeof user.dealer === 'object' ? user.dealer._id : user.dealer;
+      
+      const dealerCustomers = allCustomers.filter((customer: any) => {
+        const customerDealerId = typeof customer.ownerDealer === 'object' 
+          ? customer.ownerDealer._id 
+          : customer.ownerDealer;
+        
+        return customerDealerId === userDealerId;
+      });
+
+      console.log('[CreateQuote] Dealer filtering:', {
+        userDealerId,
+        totalCustomers: allCustomers.length,
+        dealerCustomers: dealerCustomers.length,
+      });
+
+      setFilteredCustomers(dealerCustomers);
+      return;
+    }
+
+    // Default: show all
+    setFilteredCustomers(allCustomers);
+  }, [user, allCustomers]);
 
   useEffect(() => {
     // Calculate totals
@@ -173,18 +218,32 @@ function CreateQuoteForm() {
                   value={formData.customer as string}
                   onValueChange={(value) => setFormData({ ...formData, customer: value })}
                   required
+                  disabled={filteredCustomers.length === 0}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select customer" />
+                    <SelectValue placeholder={filteredCustomers.length === 0 ? "No customers available" : "Select customer"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer._id} value={customer._id}>
-                        {customer.fullName} - {customer.phone}
-                      </SelectItem>
-                    ))}
+                    {filteredCustomers.length === 0 ? (
+                      <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                        {allCustomers.length === 0 ? 'No customers available' : 'No customers for your dealer'}
+                      </div>
+                    ) : (
+                      filteredCustomers.map((customer) => (
+                        <SelectItem key={customer._id} value={customer._id}>
+                          {customer.fullName} - {customer.phone}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
+                {filteredCustomers.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {allCustomers.length === 0 
+                      ? 'Please create a customer first before creating a quote.' 
+                      : 'No customers found for your dealer. Please create customers from the Customers page.'}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-4">

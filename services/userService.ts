@@ -8,6 +8,7 @@ export const userService = {
   },
 
   getDealerStaff: async (): Promise<User[]> => {
+    // Use /users endpoint and filter will be done in component
     const response = await api.get('/users/staff');
     return Array.isArray(response.data) ? response.data : (response.data?.data || []);
   },

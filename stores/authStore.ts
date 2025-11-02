@@ -57,6 +57,15 @@ export const useAuthStore = create<AuthState>((set, get) => {
           refreshToken: response.refreshToken,
           isAuthenticated: true,
         });
+        
+        // Fetch full user info with populated dealer
+        try {
+          const fullUser = await authService.me();
+          Cookies.set('user', JSON.stringify(fullUser), COOKIE_OPTIONS);
+          set({ user: fullUser });
+        } catch (error) {
+          console.error('Failed to fetch full user info:', error);
+        }
       } catch (error) {
         throw error;
       }
