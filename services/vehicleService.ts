@@ -1,4 +1,4 @@
-import api from '@/lib/api';
+import api from "@/lib/api";
 
 export interface VehicleModel {
   _id: string;
@@ -11,7 +11,7 @@ export interface VehicleModel {
 
 export interface Vehicle {
   _id: string;
-  model: VehicleModel | string; // VehicleModel object when populated
+  model: VehicleModel | string;
   trim: string; // Variant name
   battery?: string;
   range?: number;
@@ -34,8 +34,10 @@ export interface VehicleFilter {
 
 export const vehicleService = {
   getVehicles: async (filters?: VehicleFilter): Promise<Vehicle[]> => {
-    const response = await api.get('/vehicles', { params: filters });
-    return Array.isArray(response.data) ? response.data : (response.data?.data || []);
+    const response = await api.get("/vehicles", { params: filters });
+    return Array.isArray(response.data)
+      ? response.data
+      : response.data?.data || [];
   },
 
   getVehicleById: async (id: string): Promise<Vehicle> => {
@@ -44,7 +46,7 @@ export const vehicleService = {
   },
 
   compareVehicles: async (vehicleIds: string[]): Promise<Vehicle[]> => {
-    const response = await api.post('/vehicles/compare', { ids: vehicleIds });
+    const response = await api.post("/vehicles/compare", { ids: vehicleIds });
     if (response.data?.data?.vehicles) {
       return response.data.data.vehicles;
     }
@@ -55,11 +57,14 @@ export const vehicleService = {
   },
 
   createVehicle: async (data: Partial<Vehicle>): Promise<Vehicle> => {
-    const response = await api.post('/vehicles', data);
+    const response = await api.post("/vehicles", data);
     return response.data;
   },
 
-  updateVehicle: async (id: string, data: Partial<Vehicle>): Promise<Vehicle> => {
+  updateVehicle: async (
+    id: string,
+    data: Partial<Vehicle>
+  ): Promise<Vehicle> => {
     const response = await api.put(`/vehicles/${id}`, data);
     return response.data;
   },
@@ -68,4 +73,3 @@ export const vehicleService = {
     await api.delete(`/vehicles/${id}`);
   },
 };
-
