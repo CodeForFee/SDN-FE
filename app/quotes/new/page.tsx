@@ -24,6 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import * as Yup from 'yup';
+import { quoteItemSchema, feesSchema } from '@/validations/quoteSchema';
 
 function CreateQuoteForm() {
   const router = useRouter();
@@ -36,6 +38,8 @@ function CreateQuoteForm() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [colors, setColors] = useState<VehicleColor[]>([]);
   const [items, setItems] = useState<QuoteItem[]>([]);
+  const [itemErrors, setItemErrors] = useState<Record<number, any>>({});
+  const [formErrors, setFormErrors] = useState<any>({});
   const [formData, setFormData] = useState<Partial<CreateQuoteRequest>>({
     customer: '',
     items: [],
@@ -170,13 +174,92 @@ function CreateQuoteForm() {
     }
     
     setItems(updatedItems);
+    
+    // Validate item on change
+    validateItem(index, updatedItems[index]);
+  };
+
+  const validateItem = async (index: number, item: QuoteItem) => {
+    try {
+      await quoteItemSchema.validate(item, { abortEarly: false });
+      // Clear errors for this item if validation passes
+      const newErrors = { ...itemErrors };
+      delete newErrors[index];
+      setItemErrors(newErrors);
+    } catch (err) {
+      if (err instanceof Yup.ValidationError) {
+        const errors: any = {};
+        err.inner.forEach((error) => {
+          if (error.path) {
+            errors[error.path] = error.message;
+          }
+        });
+        setItemErrors({ ...itemErrors, [index]: errors });
+      }
+    }
+  };
+
+  const validateFees = async () => {
+    if (!formData.fees) return true;
+    try {
+      await feesSchema.validate(formData.fees, { abortEarly: false });
+      return true;
+    } catch (err) {
+      if (err instanceof Yup.ValidationError) {
+        const errors: any = {};
+        err.inner.forEach((error) => {
+          if (error.path) {
+            errors[`fees.${error.path}`] = error.message;
+          }
+        });
+        setFormErrors(errors);
+        return false;
+      }
+    }
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.customer || items.length === 0) {
-      toast.error('Please select customer and add at least one item');
+    if (!formData.customer) {
+      toast.error('Please select a customer');
+      return;
+    }
+
+    if (items.length === 0) {
+      toast.error('Please add at least one item');
+      return;
+    }
+
+    // Validate all items
+    let hasErrors = false;
+    const newErrors: Record<number, any> = {};
+    
+    for (let i = 0; i < items.length; i++) {
+      try {
+        await quoteItemSchema.validate(items[i], { abortEarly: false });
+      } catch (err) {
+        if (err instanceof Yup.ValidationError) {
+          hasErrors = true;
+          const errors: any = {};
+          err.inner.forEach((error) => {
+            if (error.path) {
+              errors[error.path] = error.message;
+            }
+          });
+          newErrors[i] = errors;
+        }
+      }
+    }
+
+    setItemErrors(newErrors);
+
+    // Validate fees
+    const feesValid = await validateFees();
+
+    if (hasErrors || !feesValid) {
+      toast.error('Please fix validation errors before submitting');
       return;
     }
 
@@ -264,6 +347,7 @@ function CreateQuoteForm() {
                 {items.map((item, index) => {
                   const vehicle = vehicles.find(v => v._id === item.variant);
                   const vehicleModel = typeof vehicle?.model === 'object' ? vehicle.model : null;
+                  const errors = itemErrors[index] || {};
                   
                   return (
                     <Card key={index} className="rounded-2xl">
@@ -302,10 +386,13 @@ function CreateQuoteForm() {
                                 })}
                               </SelectContent>
                             </Select>
+                            {errors.variant && (
+                              <p className="text-sm text-red-500">{errors.variant}</p>
+                            )}
                           </div>
 
                           <div className="space-y-2">
-                            <Label>Color</Label>
+                            <Label>Color *</Label>
                             <Select
                               value={item.color || ''}
                               onValueChange={(value) => updateItem(index, 'color', value)}
@@ -321,6 +408,9 @@ function CreateQuoteForm() {
                                 ))}
                               </SelectContent>
                             </Select>
+                            {errors.color && (
+                              <p className="text-sm text-red-500">{errors.color}</p>
+                            )}
                           </div>
 
                           <div className="space-y-2">
@@ -332,16 +422,25 @@ function CreateQuoteForm() {
                               onChange={(e) => updateItem(index, 'qty', Number(e.target.value))}
                               required
                             />
+                            {errors.qty && (
+                              <p className="text-sm text-red-500">{errors.qty}</p>
+                            )}
                           </div>
 
                           <div className="space-y-2">
                             <Label>Unit Price *</Label>
                             <Input
                               type="number"
+                              min="0"
+                              step="0.01"
                               value={item.unitPrice}
-                              onChange={(e) => updateItem(index, 'unitPrice', Number(e.target.value))}
-                              required
+                              readOnly
+                              disabled
+                              className="bg-muted cursor-not-allowed"
                             />
+                            {errors.unitPrice && (
+                              <p className="text-sm text-red-500">{errors.unitPrice}</p>
+                            )}
                           </div>
                         </div>
 
@@ -364,6 +463,8 @@ function CreateQuoteForm() {
                   <Input
                     id="discount"
                     type="number"
+                    min="0"
+                    step="1000"
                     value={formData.discount || 0}
                     onChange={(e) => setFormData({ ...formData, discount: Number(e.target.value) })}
                   />
@@ -373,6 +474,8 @@ function CreateQuoteForm() {
                   <Input
                     id="promotionTotal"
                     type="number"
+                    min="0"
+                    step="1000"
                     value={formData.promotionTotal || 0}
                     onChange={(e) => setFormData({ ...formData, promotionTotal: Number(e.target.value) })}
                   />
@@ -396,36 +499,51 @@ function CreateQuoteForm() {
                     <Input
                       id="registration"
                       type="number"
+                      min="0"
+                      step="1000"
                       value={formData.fees?.registration || 0}
                       onChange={(e) => setFormData({
                         ...formData,
                         fees: { ...formData.fees, registration: Number(e.target.value) },
                       })}
                     />
+                    {formErrors['fees.registration'] && (
+                      <p className="text-sm text-red-500">{formErrors['fees.registration']}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="plate">Plate</Label>
                     <Input
                       id="plate"
                       type="number"
+                      min="0"
+                      step="1000"
                       value={formData.fees?.plate || 0}
                       onChange={(e) => setFormData({
                         ...formData,
                         fees: { ...formData.fees, plate: Number(e.target.value) },
                       })}
                     />
+                    {formErrors['fees.plate'] && (
+                      <p className="text-sm text-red-500">{formErrors['fees.plate']}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="delivery">Delivery</Label>
                     <Input
                       id="delivery"
                       type="number"
+                      min="0"
+                      step="1000"
                       value={formData.fees?.delivery || 0}
                       onChange={(e) => setFormData({
                         ...formData,
                         fees: { ...formData.fees, delivery: Number(e.target.value) },
                       })}
                     />
+                    {formErrors['fees.delivery'] && (
+                      <p className="text-sm text-red-500">{formErrors['fees.delivery']}</p>
+                    )}
                   </div>
                 </div>
               </div>
