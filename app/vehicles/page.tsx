@@ -7,11 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
+import { VehicleColor } from '@/services/vehicleColorService'
 import { motion } from 'framer-motion';
-import { Search, Car, GitCompare } from 'lucide-react';
+import { Search, Car, GitCompare, Palette } from 'lucide-react';
 import Link from 'next/link';
 import { getImageUrl, isAbsoluteImageUrl } from '@/lib/imageUtils';
 import Image from 'next/image';
+
+// Hàm để hiển thị tên Model (tách riêng cho code sạch hơn)
+const getModelName = (model: Vehicle['model']): string => {
+  return typeof model === 'string' ? model : model?.name || 'N/A';
+};
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -22,6 +28,7 @@ export default function VehiclesPage() {
   useEffect(() => {
     const fetchVehicles = async () => {
       try {
+        // Đảm bảo vehicleService.getVehicles() trả về type Vehicle[] mới
         const data = await vehicleService.getVehicles();
         setVehicles(data);
         setFilteredVehicles(data);
@@ -36,7 +43,7 @@ export default function VehiclesPage() {
 
   useEffect(() => {
     const filtered = vehicles.filter((v) => {
-      const modelStr = typeof v.model === 'string' ? v.model : v.model?.name || '';
+      const modelStr = getModelName(v.model);
       const trimStr = v.trim || '';
       return (
         modelStr.toLowerCase().includes(search.toLowerCase()) ||
@@ -88,7 +95,7 @@ export default function VehiclesPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <Card className="rounded-2xl shadow-md hover:shadow-lg transition-shadow">
+              <Card className="rounded-2xl shadow-md hover:shadow-lg transition-shadow h-full flex flex-col">
                 <CardHeader>
                   <div className="aspect-video bg-muted rounded-xl mb-4 flex items-center justify-center overflow-hidden">
                     {(() => {
@@ -98,7 +105,7 @@ export default function VehiclesPage() {
                       }
                       
                       const isAbsolute = isAbsoluteImageUrl(imageUrl);
-                      const alt = typeof vehicle.model === 'string' ? vehicle.model : vehicle.model?.name || 'Vehicle';
+                      const alt = getModelName(vehicle.model);
                       
                       return isAbsolute ? (
                         <img
@@ -130,14 +137,15 @@ export default function VehiclesPage() {
                     </div>
                   </div>
                   <CardTitle className="text-xl">
-                    {typeof vehicle.model === 'string' ? vehicle.model : vehicle.model?.name || 'N/A'}
+                    {getModelName(vehicle.model)}
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     {vehicle.trim || 'N/A'}
                   </p>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 mb-4">
+                <CardContent className="flex-1 flex flex-col justify-between">
+                  <div className="space-y-3 mb-4">
+                    {/* Hiển thị chi tiết thông số */}
                     <div className="text-sm space-y-1">
                       {vehicle.battery && (
                         <p><strong>Battery:</strong> {vehicle.battery}</p>
@@ -149,13 +157,42 @@ export default function VehiclesPage() {
                         <p><strong>Motor Power:</strong> {vehicle.motorPower} kW</p>
                       )}
                     </div>
+
+                    {/* HIỂN THỊ MÀU SẮC */}
+                    <div className="space-y-2">
+                        <p className="text-sm font-semibold flex items-center gap-2">
+                            <Palette className="h-4 w-4 text-muted-foreground" />
+                            Available Colors:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                            {vehicle.colors && vehicle.colors.length > 0 ? (
+                                vehicle.colors.slice(0, 5).map((color: VehicleColor) => (
+                                    <div 
+                                        key={color._id} 
+                                        className="h-6 w-6 rounded-full border border-gray-300 shadow-sm"
+                                        style={{ backgroundColor: color.hex || '#ffffff' }}
+                                        title={`${color.name} (${color.hex})`}
+                                    />
+                                ))
+                            ) : (
+                                <span className="text-xs text-muted-foreground">No colors available.</span>
+                            )}
+                            {vehicle.colors && vehicle.colors.length > 5 && (
+                                <span className="text-xs text-muted-foreground self-end">+{vehicle.colors.length - 5} more</span>
+                            )}
+                        </div>
+                    </div>
+                    {/* Kết thúc Hiển thị màu sắc */}
+
                     <div className="flex items-center gap-2">
                       <Badge variant={vehicle.active !== false ? 'default' : 'secondary'}>
                         {vehicle.active !== false ? 'active' : 'inactive'}
                       </Badge>
                     </div>
                   </div>
-                  <div className="space-y-3">
+                  
+                  {/* Footer & Buttons */}
+                  <div className="space-y-3 mt-auto">
                     <div className="text-2xl font-bold break-words">${(vehicle.msrp || 0).toLocaleString()}</div>
                     <div className="flex gap-2 flex-wrap">
                       <Link href={`/vehicles/compare?ids=${vehicle._id}`} className="flex-1 min-w-[100px]">
@@ -178,4 +215,3 @@ export default function VehiclesPage() {
     </MainLayout>
   );
 }
-

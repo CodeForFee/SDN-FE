@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import { VehicleColor } from "./vehicleColorService";
 
 export interface VehicleModel {
   _id: string;
@@ -13,6 +14,7 @@ export interface Vehicle {
   _id: string;
   model: VehicleModel | string;
   trim: string; // Variant name
+  colors: VehicleColor[];
   battery?: string;
   range?: number;
   motorPower?: number;

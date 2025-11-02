@@ -30,30 +30,116 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Car } from "lucide-react";
+import { Plus, Edit, Trash2, Car, Check, Palette } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Formik, Form, Field, ErrorMessage } from "formik";
+import { Formik, Form, Field, ErrorMessage, useFormikContext } from "formik";
 import { vehicleService, Vehicle } from "@/services/vehicleService";
 import {
   vehicleModelService,
   VehicleModel,
 } from "@/services/vehicleModelService";
-import { vehicleSchema } from "@/validations/vehicleSchema";
+import {
+  vehicleColorService,
+  VehicleColor,
+} from "@/services/vehicleColorService";
+import { vehicleSchema as vehicleSchemaImport } from "@/validations/vehicleSchema";
+import { Input } from "@/components/ui/input";
+
+const vehicleSchema = vehicleSchemaImport;
+
+const cn = (...classes: string[]) => classes.filter(Boolean).join(" ");
+
+interface VehicleFormValues {
+  model: string;
+  trim: string;
+  colors: string[];
+  battery: string;
+  range: number;
+  motorPower: number;
+  msrp: number;
+  features: string[];
+  images: string[];
+  active: boolean;
+}
+
+const ColorMultiSelector = ({ allColors }: { allColors: VehicleColor[] }) => {
+  const { values, setFieldValue } = useFormikContext<VehicleFormValues>();
+  const selectedColorIds = values.colors || [];
+
+  const handleToggleColor = (colorId: string) => {
+    let newColors;
+    if (selectedColorIds.includes(colorId)) {
+      newColors = selectedColorIds.filter((id) => id !== colorId);
+    } else {
+      newColors = [...selectedColorIds, colorId];
+    }
+    setFieldValue("colors", newColors);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-3 p-4 border rounded-2xl bg-gray-50 max-h-40 overflow-y-auto">
+        {allColors
+          .filter((c) => c.active !== false)
+          .map((color) => {
+            const isSelected = selectedColorIds.includes(color._id);
+            const checkmarkColor =
+              color.hex === "#000000" ||
+              color.hex === "#028A00" ||
+              color.hex === "#0077B6"
+                ? "text-white"
+                : "text-black";
+
+            const conditionalClasses = isSelected
+              ? "ring-4 ring-offset-2 ring-primary border-primary"
+              : "border-gray-300 hover:ring-2 hover:ring-gray-400";
+
+            return (
+              <button
+                key={color._id}
+                type="button"
+                onClick={() => handleToggleColor(color._id)}
+                className={cn(
+                  "w-10 h-10 rounded-full shadow-md transition-all duration-200 flex items-center justify-center border-2",
+                  conditionalClasses
+                )}
+                style={{ backgroundColor: color.hex || "#ffffff" }}
+                title={`${color.name} (${color.hex})`}
+              >
+                {isSelected && (
+                  <Check className={cn("h-4 w-4", checkmarkColor)} />
+                )}
+              </button>
+            );
+          })}
+      </div>
+      <ErrorMessage
+        name="colors"
+        component="div"
+        className="text-sm text-destructive"
+      />
+    </div>
+  );
+};
 
 export default function VehicleManagementPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [models, setModels] = useState<VehicleModel[]>([]);
+  const [colors, setColors] = useState<VehicleColor[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
 
-  const getInitialValues = (vehicle?: Vehicle) => ({
+  const getInitialValues = (vehicle?: Vehicle): VehicleFormValues => ({
     model:
       typeof vehicle?.model === "string"
         ? vehicle.model
         : vehicle?.model?._id || "",
     trim: vehicle?.trim || "",
+    colors: (vehicle?.colors || []).map((c) =>
+      typeof c === "string" ? c : c._id
+    ),
     battery: vehicle?.battery || "",
     range: vehicle?.range || 0,
     motorPower: vehicle?.motorPower || 0,
@@ -66,7 +152,18 @@ export default function VehicleManagementPage() {
   useEffect(() => {
     fetchVehicles();
     fetchModels();
+    fetchColors();
   }, []);
+
+  const fetchColors = async () => {
+    try {
+      const data = await vehicleColorService.list();
+      setColors(data);
+    } catch (error) {
+      console.error("Failed to fetch vehicle colors:", error);
+      toast.error("Failed to load available colors");
+    }
+  };
 
   const fetchModels = async () => {
     try {
@@ -117,7 +214,6 @@ export default function VehicleManagementPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Header & Add Vehicle */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Vehicle Management</h1>
@@ -139,9 +235,8 @@ export default function VehicleManagementPage() {
                 enableReinitialize
                 onSubmit={async (values, { setSubmitting }) => {
                   try {
-                    const payload = {
-                      ...values,
-                    };
+                    // Sửa lỗi Type Assertion cho payload
+                    const payload = values as unknown as Partial<Vehicle>;
 
                     if (editingVehicle) {
                       await vehicleService.updateVehicle(
@@ -150,7 +245,7 @@ export default function VehicleManagementPage() {
                       );
                       toast.success("Vehicle updated successfully");
                     } else {
-                      await vehicleService.createVehicle(payload);
+                      await vehicleService.createVehicle(payload as Vehicle);
                       toast.success("Vehicle created successfully");
                     }
 
@@ -179,7 +274,6 @@ export default function VehicleManagementPage() {
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
-                      {/* Model */}
                       <div className="space-y-2">
                         <Label htmlFor="model">Vehicle Model *</Label>
                         <Select
@@ -214,23 +308,40 @@ export default function VehicleManagementPage() {
                         />
                       </div>
 
-                      {/* Trim */}
-                      <div className="space-y-2">
-                        <Label htmlFor="trim">Trim</Label>
-                        <Field
-                          id="trim"
-                          name="trim"
-                          placeholder="e.g. Standard, Premium"
-                          className="w-full rounded-2xl border border-input px-3 py-2"
-                        />
-                        <ErrorMessage
-                          name="trim"
-                          component="div"
-                          className="text-sm text-destructive"
-                        />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="trim">Trim</Label>
+                          <Field
+                            id="trim"
+                            name="trim"
+                            placeholder="e.g. Standard, Premium"
+                            className="w-full rounded-2xl border border-input px-3 py-2"
+                          />
+                          <ErrorMessage
+                            name="trim"
+                            component="div"
+                            className="text-sm text-destructive"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="colors">Available Colors *</Label>
+                          {colors.length > 0 ? (
+                            <ColorMultiSelector allColors={colors} />
+                          ) : (
+                            <div className="text-sm text-muted-foreground pt-2">
+                              No active colors found.
+                            </div>
+                          )}
+
+                          <ErrorMessage
+                            name="colors"
+                            component="div"
+                            className="text-sm text-destructive"
+                          />
+                        </div>
                       </div>
 
-                      {/* Battery & Range */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="battery">Battery</Label>
@@ -265,7 +376,6 @@ export default function VehicleManagementPage() {
                         </div>
                       </div>
 
-                      {/* Motor Power & MSRP */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="motorPower">Motor Power (kW)</Label>
@@ -302,7 +412,6 @@ export default function VehicleManagementPage() {
                         </div>
                       </div>
 
-                      {/* Features */}
                       <div className="space-y-2">
                         <Label htmlFor="features">
                           Features (comma separated)
@@ -325,7 +434,6 @@ export default function VehicleManagementPage() {
                         />
                       </div>
 
-                      {/* Images */}
                       <div className="space-y-2">
                         <Label htmlFor="images">
                           Images (comma separated URLs)
@@ -348,7 +456,6 @@ export default function VehicleManagementPage() {
                         />
                       </div>
 
-                      {/* Active */}
                       <div className="space-y-2">
                         <Label htmlFor="active">Active</Label>
                         <Field
@@ -382,7 +489,6 @@ export default function VehicleManagementPage() {
           </Dialog>
         </div>
 
-        {/* Vehicles Table */}
         <Card className="rounded-2xl shadow-md">
           <CardContent className="p-0">
             <Table>
@@ -390,6 +496,7 @@ export default function VehicleManagementPage() {
                 <TableRow>
                   <TableHead>Model</TableHead>
                   <TableHead>Trim</TableHead>
+                  <TableHead>Colors</TableHead>
                   <TableHead>Battery</TableHead>
                   <TableHead>MSRP</TableHead>
                   <TableHead>Range</TableHead>
@@ -414,6 +521,38 @@ export default function VehicleManagementPage() {
                       </div>
                     </TableCell>
                     <TableCell>{vehicle.trim || "N/A"}</TableCell>
+
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {vehicle.colors && vehicle.colors.length > 0 ? (
+                          vehicle.colors.map((colorItem, colorIndex) => {
+                            const color =
+                              typeof colorItem === "string"
+                                ? colors.find((c) => c._id === colorItem)
+                                : colorItem;
+
+                            if (color) {
+                              return (
+                                <div
+                                  key={color._id || colorIndex}
+                                  className="h-4 w-4 rounded-full border border-gray-300 shadow-sm"
+                                  style={{
+                                    backgroundColor: color.hex || "#ffffff",
+                                  }}
+                                  title={color.name || color.hex || "Color"}
+                                />
+                              );
+                            }
+                            return null;
+                          })
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            N/A
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+
                     <TableCell>{vehicle.battery || "N/A"}</TableCell>
                     <TableCell>
                       ${(vehicle.msrp || 0).toLocaleString()}
