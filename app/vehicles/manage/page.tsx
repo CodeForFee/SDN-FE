@@ -182,7 +182,7 @@ export default function VehicleManagementPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {models.length === 0 ? (
-                            <SelectItem value="" disabled>No models available. Please create a model first.</SelectItem>
+                            <SelectItem value="__no_models__" disabled>No models available. Please create a model first.</SelectItem>
                           ) : (
                             models.filter(m => m.active !== false).map((model) => (
                               <SelectItem key={model._id} value={model._id}>

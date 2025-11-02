@@ -32,7 +32,7 @@ export default function ReportsPage() {
   const [debtLoading, setDebtLoading] = useState(false);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'sales' | 'debt' | 'inventory'>('sales');
-  const [selectedDealerId, setSelectedDealerId] = useState<string>('');
+  const [selectedDealerId, setSelectedDealerId] = useState<string>('all');
   const [dealers, setDealers] = useState<any[]>([]);
 
   useEffect(() => {
@@ -43,11 +43,11 @@ export default function ReportsPage() {
         
         if (user?.role === 'Admin') {
           // Admin can see sales report (with optional dealer filter)
-          rawData = await reportService.getSalesReport(selectedDealerId ? { dealerId: selectedDealerId } : undefined);
+          rawData = await reportService.getSalesReport(selectedDealerId && selectedDealerId !== 'all' ? { dealerId: selectedDealerId } : undefined);
           console.log('[Reports] Sales report data (Admin):', rawData);
         } else if (user?.role === 'DealerManager' || user?.role === 'EVMStaff') {
           // Dealer Manager and EVM Staff can see sales report (with optional dealer filter for EVM Staff)
-          const params = user?.role === 'EVMStaff' && selectedDealerId ? { dealerId: selectedDealerId } : undefined;
+          const params = user?.role === 'EVMStaff' && selectedDealerId && selectedDealerId !== 'all' ? { dealerId: selectedDealerId } : undefined;
           rawData = await reportService.getSalesReport(params);
           console.log('[Reports] Sales report data (Manager/Staff):', rawData);
         } else {
@@ -371,7 +371,7 @@ export default function ReportsPage() {
                         <SelectValue placeholder="All Dealers" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Dealers</SelectItem>
+                        <SelectItem value="all">All Dealers</SelectItem>
                         {dealers.map((dealer) => (
                           <SelectItem key={dealer._id} value={dealer._id}>
                             {dealer.name} {dealer.region ? `(${dealer.region})` : ''}
