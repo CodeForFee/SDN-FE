@@ -8,7 +8,7 @@ export const quoteItemSchema = Yup.object().shape({
   
   color: Yup
     .string()
-    .nullable()
+    .required('Color is required')
     .matches(/^[0-9a-fA-F]{24}$/, 'Invalid color ID format'),
   
   qty: Yup

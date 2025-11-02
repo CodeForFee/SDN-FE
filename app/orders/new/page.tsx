@@ -22,6 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import * as Yup from 'yup';
+import { orderItemSchema } from '@/validations/orderSchema';
 
 function CreateOrderForm() {
   const router = useRouter();
@@ -32,6 +34,7 @@ function CreateOrderForm() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [colors, setColors] = useState<VehicleColor[]>([]);
   const [items, setItems] = useState<OrderItem[]>([]);
+  const [itemErrors, setItemErrors] = useState<Record<number, any>>({});
   const [formData, setFormData] = useState<Partial<CreateOrderRequest>>({
     customer: '',
     items: [],
@@ -112,13 +115,69 @@ function CreateOrderForm() {
     }
     
     setItems(updatedItems);
+    
+    // Validate item on change
+    validateItem(index, updatedItems[index]);
+  };
+
+  const validateItem = async (index: number, item: OrderItem) => {
+    try {
+      await orderItemSchema.validate(item, { abortEarly: false });
+      // Clear errors for this item if validation passes
+      const newErrors = { ...itemErrors };
+      delete newErrors[index];
+      setItemErrors(newErrors);
+    } catch (err) {
+      if (err instanceof Yup.ValidationError) {
+        const errors: any = {};
+        err.inner.forEach((error) => {
+          if (error.path) {
+            errors[error.path] = error.message;
+          }
+        });
+        setItemErrors({ ...itemErrors, [index]: errors });
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.customer || items.length === 0) {
-      toast.error('Please select customer and add at least one item');
+    if (!formData.customer) {
+      toast.error('Please select a customer');
+      return;
+    }
+
+    if (items.length === 0) {
+      toast.error('Please add at least one item');
+      return;
+    }
+
+    // Validate all items
+    let hasErrors = false;
+    const newErrors: Record<number, any> = {};
+    
+    for (let i = 0; i < items.length; i++) {
+      try {
+        await orderItemSchema.validate(items[i], { abortEarly: false });
+      } catch (err) {
+        if (err instanceof Yup.ValidationError) {
+          hasErrors = true;
+          const errors: any = {};
+          err.inner.forEach((error) => {
+            if (error.path) {
+              errors[error.path] = error.message;
+            }
+          });
+          newErrors[i] = errors;
+        }
+      }
+    }
+
+    setItemErrors(newErrors);
+
+    if (hasErrors) {
+      toast.error('Please fix validation errors before submitting');
       return;
     }
 
@@ -209,6 +268,7 @@ function CreateOrderForm() {
                 {items.map((item, index) => {
                   const vehicle = vehicles.find(v => v._id === item.variant);
                   const vehicleModel = typeof vehicle?.model === 'object' ? vehicle.model : null;
+                  const errors = itemErrors[index] || {};
                   
                   return (
                     <Card key={index} className="rounded-2xl">
@@ -247,6 +307,9 @@ function CreateOrderForm() {
                                 })}
                               </SelectContent>
                             </Select>
+                            {errors.variant && (
+                              <p className="text-sm text-red-500">{errors.variant}</p>
+                            )}
                           </div>
 
                           <div className="space-y-2">
@@ -266,6 +329,9 @@ function CreateOrderForm() {
                                 ))}
                               </SelectContent>
                             </Select>
+                            {errors.color && (
+                              <p className="text-sm text-red-500">{errors.color}</p>
+                            )}
                           </div>
 
                           <div className="space-y-2">
@@ -277,16 +343,25 @@ function CreateOrderForm() {
                               onChange={(e) => updateItem(index, 'qty', Number(e.target.value))}
                               required
                             />
+                            {errors.qty && (
+                              <p className="text-sm text-red-500">{errors.qty}</p>
+                            )}
                           </div>
 
                           <div className="space-y-2">
                             <Label>Unit Price *</Label>
                             <Input
                               type="number"
+                              min="0"
+                              step="0.01"
                               value={item.unitPrice}
-                              onChange={(e) => updateItem(index, 'unitPrice', Number(e.target.value))}
-                              required
+                              readOnly
+                              disabled
+                              className="bg-muted cursor-not-allowed"
                             />
+                            {errors.unitPrice && (
+                              <p className="text-sm text-red-500">{errors.unitPrice}</p>
+                            )}
                           </div>
                         </div>
                       </CardContent>
@@ -301,6 +376,8 @@ function CreateOrderForm() {
                   <Input
                     id="deposit"
                     type="number"
+                    min="0"
+                    step="0.01"
                     value={formData.deposit || 0}
                     onChange={(e) => setFormData({ ...formData, deposit: Number(e.target.value) })}
                   />

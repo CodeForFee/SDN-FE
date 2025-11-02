@@ -28,9 +28,10 @@ export default function CustomersPage() {
     const fetchCustomers = async () => {
       try {
         const data = await customerService.getCustomers();
+        console.log('[Customers] Fetched all customers:', data);
+        console.log('[Customers] Current user:', user);
         setAllCustomers(data);
       } catch (error) {
-        console.error('Failed to fetch customers:', error);
         console.error('[Customers] Failed to fetch customers:', error);
       } finally {
         setLoading(false);
@@ -58,6 +59,12 @@ export default function CustomersPage() {
       const userDealerId = typeof user.dealer === 'object' ? user.dealer._id : user.dealer;
       
       const dealerCustomers = allCustomers.filter((customer: any) => {
+        // If customer doesn't have ownerDealer (old data), show it to all dealers
+        if (!customer.ownerDealer) {
+          console.log(`[Customers] Customer ${customer._id} has no ownerDealer - showing to all dealers`);
+          return true;
+        }
+        
         const customerDealerId = typeof customer.ownerDealer === 'object' 
           ? customer.ownerDealer._id 
           : customer.ownerDealer;
@@ -69,6 +76,7 @@ export default function CustomersPage() {
         userDealerId,
         totalCustomers: allCustomers.length,
         dealerCustomers: dealerCustomers.length,
+        customersWithoutDealer: allCustomers.filter((c: any) => !c.ownerDealer).length,
       });
 
       setFilteredCustomers(dealerCustomers);
