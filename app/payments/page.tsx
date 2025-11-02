@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { paymentService, Payment } from '@/services/paymentService';
+import { customerService } from '@/services/customerService';
 import { useAuthStore } from '@/stores/authStore';
 import { DollarSign, CheckCircle, XCircle, Eye, ArrowLeft, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -62,6 +63,7 @@ export default function PaymentsPage() {
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [customerNames, setCustomerNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     // Redirect if not authorized
@@ -77,12 +79,47 @@ export default function PaymentsPage() {
       setLoading(true);
       const data = await paymentService.getPayments();
       setPayments(data);
+      
+      // Fetch customer names for all payments
+      await fetchCustomerNames(data);
     } catch (error: any) {
       console.error('Failed to fetch payments:', error);
       toast.error(error?.response?.data?.message || 'Failed to load payments');
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchCustomerNames = async (payments: Payment[]) => {
+    const customerIds = new Set<string>();
+    
+    // Collect all unique customer IDs
+    payments.forEach((payment) => {
+      if (typeof payment.order === 'object' && payment.order !== null) {
+        const order = payment.order as any;
+        if (order.customer && typeof order.customer === 'string') {
+          customerIds.add(order.customer);
+        }
+      }
+    });
+
+
+    // Fetch customer details for each ID
+    const names: Record<string, string> = {};
+    await Promise.all(
+      Array.from(customerIds).map(async (customerId) => {
+        try {
+          const customer = await customerService.getCustomerById(customerId);
+          console.log(`[fetchCustomerNames] Customer ${customerId}:`, customer);
+          names[customerId] = customer.fullName || customer.email || 'Unknown';
+        } catch (error) {
+          console.error(`[fetchCustomerNames] Failed to fetch customer ${customerId}:`, error);
+          names[customerId] = `Customer #${customerId.slice(-8)}`;
+        }
+      })
+    );
+
+    setCustomerNames(names);
   };
 
   const handleConfirmPayment = async (payment: Payment) => {
@@ -116,12 +153,22 @@ export default function PaymentsPage() {
   // Get order info from payment
   const getOrderInfo = (payment: Payment) => {
     if (typeof payment.order === 'object' && payment.order !== null) {
-      return {
-        orderNo: (payment.order as any).orderNo || `#${payment.order._id?.slice(-8)}`,
-        customer: (payment.order as any).customer
-          ? `${(payment.order as any).customer.fullName || (payment.order as any).customer.email || 'N/A'}`
-          : 'N/A',
-      };
+      const order = payment.order as any;
+      const orderNo = order.orderNo || `#${order._id?.slice(-8)}`;
+      
+      // Get customer name from fetched data or ID
+      let customer = 'N/A';
+      if (order.customer) {
+        if (typeof order.customer === 'object') {
+          customer = order.customer.fullName || order.customer.name || order.customer.email || 'N/A';
+        } else if (typeof order.customer === 'string') {
+          // Use fetched customer name from state
+          const fetchedName = customerNames[order.customer];
+          customer = fetchedName || 'Loading...';
+        }
+      }
+      
+      return { orderNo, customer };
     }
     return { orderNo: 'N/A', customer: 'N/A' };
   };
