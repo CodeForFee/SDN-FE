@@ -1,3 +1,4 @@
+// validations/vehicleModelSchema.ts
 import * as Yup from "yup";
 
 export const vehicleModelSchema = Yup.object().shape({
