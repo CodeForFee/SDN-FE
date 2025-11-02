@@ -76,6 +76,14 @@ export default function CustomerDetailPage() {
 
   const handleSave = async () => {
     if (!customer) return;
+    // prevent submitting when nothing changed
+    const fieldsToCompare = ['fullName', 'phone', 'email', 'idNumber', 'address', 'segment', 'notes'];
+    const hasChanges = fieldsToCompare.some((f) => (formData as any)[f] !== (customer as any)[f]);
+    if (!hasChanges) {
+      toast.error('No changes detected — nothing to save');
+      return;
+    }
+
     try {
       const updated = await customerService.updateCustomer(customer._id, formData);
       setCustomer(updated);
@@ -102,6 +110,13 @@ export default function CustomerDetailPage() {
   };
 
   const canEdit = user?.role === 'DealerStaff' || user?.role === 'DealerManager';
+
+  // determine if the current form has any changes compared to original customer
+  const hasChanges = customer
+    ? ['fullName', 'phone', 'email', 'idNumber', 'address', 'segment', 'notes'].some(
+        (f) => (formData as any)[f] !== (customer as any)[f]
+      )
+    : false;
 
   if (loading) {
     return (
@@ -142,7 +157,7 @@ export default function CustomerDetailPage() {
                     <X className="h-4 w-4 mr-2" />
                     Cancel
                   </Button>
-                  <Button onClick={handleSave}>
+                  <Button onClick={handleSave} disabled={!hasChanges}>
                     <Save className="h-4 w-4 mr-2" />
                     Save Changes
                   </Button>

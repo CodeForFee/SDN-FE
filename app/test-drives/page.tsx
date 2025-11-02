@@ -70,6 +70,19 @@ export default function TestDrivesPage() {
     variant: '',
     preferredTime: '',
   });
+
+  // helper to provide min value for datetime-local input and to validate preferredTime
+  const formatDateTimeLocal = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1);
+    const day = pad(d.getDate());
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  const minPreferredTime = formatDateTimeLocal(new Date());
   const [feedbackData, setFeedbackData] = useState({
     feedback: '',
     interestRate: 0,
@@ -102,6 +115,17 @@ export default function TestDrivesPage() {
     try {
       if (!formData.customer || !formData.variant || !formData.preferredTime) {
         toast.error('Vui lòng điền đầy đủ thông tin');
+        return;
+      }
+      // validate preferredTime is not in the past
+      const preferred = new Date(formData.preferredTime);
+      const now = new Date();
+      if (isNaN(preferred.getTime())) {
+        toast.error('Thời gian không hợp lệ');
+        return;
+      }
+      if (preferred.getTime() < now.getTime()) {
+        toast.error('Thời gian ưu tiên không được ở quá khứ');
         return;
       }
       await testDriveService.createTestDrive(formData);
@@ -387,6 +411,7 @@ export default function TestDrivesPage() {
                   type="datetime-local"
                   value={formData.preferredTime}
                   onChange={(e) => setFormData({ ...formData, preferredTime: e.target.value })}
+                  min={minPreferredTime}
                 />
               </div>
             </div>

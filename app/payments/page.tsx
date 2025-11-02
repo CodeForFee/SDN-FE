@@ -106,17 +106,45 @@ export default function PaymentsPage() {
 
     // Fetch customer details for each ID
     const names: Record<string, string> = {};
-    await Promise.all(
-      Array.from(customerIds).map(async (customerId) => {
-        try {
-          const customer = await customerService.getCustomerById(customerId);
-          console.log(`[fetchCustomerNames] Customer ${customerId}:`, customer);
-          names[customerId] = customer.fullName || customer.email || 'Unknown';
-        } catch (error) {
-          console.error(`[fetchCustomerNames] Failed to fetch customer ${customerId}:`, error);
-          names[customerId] = `Customer #${customerId.slice(-8)}`;
+
+  // helper to validate Mongo ObjectId-like values (24 hex chars)
+  const isValidObjectId = (id: any) => typeof id === 'string' && /^[a-fA-F0-9]{24}$/.test(id);
+
+  // Detect invalid IDs early so we can log and debug where they come from
+  const allIds = Array.from(customerIds);
+  const invalidIds = allIds.filter((id) => !id || id === 'undefined' || id === 'null' || !isValidObjectId(id));
+    if (invalidIds.length > 0) {
+      console.warn('[fetchCustomerNames] Found invalid customer IDs, skipping API calls for them:', invalidIds);
+      // For easier tracing, log the payments that reference invalid ids (if any)
+      const offendingPayments = payments.filter((p) => {
+        if (typeof p.order === 'object' && p.order !== null) {
+          const order = p.order as any;
+          return order.customer && invalidIds.includes(String(order.customer));
         }
-      })
+        return false;
+      });
+      console.warn('[fetchCustomerNames] Payments referencing invalid customer IDs:', offendingPayments);
+    }
+
+    await Promise.all(
+      allIds
+        // defensive: filter out invalid values like 'undefined' or 'null'
+        .filter((id) => id && id !== 'undefined' && id !== 'null')
+        .map(async (customerId) => {
+          try {
+            const customer = await customerService.getCustomerById(customerId);
+            console.log(`[fetchCustomerNames] Customer ${customerId}:`, customer);
+            names[customerId] = customer.fullName || customer.email || 'Unknown';
+          } catch (error) {
+            console.error(`[fetchCustomerNames] Failed to fetch customer ${customerId}:`, error);
+            // ensure we handle unexpected values safely
+            try {
+              names[customerId] = customerId ? `Customer #${String(customerId).slice(-8)}` : 'Unknown Customer';
+            } catch {
+              names[customerId] = 'Unknown Customer';
+            }
+          }
+        })
     );
 
     setCustomerNames(names);
