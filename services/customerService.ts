@@ -9,7 +9,7 @@ export interface Customer {
   address?: string;
   segment?: 'retail' | 'fleet';
   notes?: string;
-  ownerDealer?: string;
+  ownerDealer?: string | { _id: string; name: string };
   ownerUser?: string;
   createdAt: string;
   updatedAt: string;

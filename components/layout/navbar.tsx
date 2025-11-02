@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useAuthStore } from '@/stores/authStore';
-import { Button } from '@/components/ui/button';
+import { useAuthStore } from "@/stores/authStore";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,13 +9,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Bell, Search, Moon, Sun, LogOut, User, Settings } from 'lucide-react';
-import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Bell, Search, Moon, Sun, LogOut, User, Settings } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export function Navbar() {
   const { user, logout } = useAuthStore();
@@ -29,17 +29,22 @@ export function Navbar() {
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    router.push("/login");
   };
 
   const getInitials = (name?: string, email?: string) => {
     if (name) {
-      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+      return name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
     }
     if (email) {
       return email[0].toUpperCase();
     }
-    return 'U';
+    return "U";
   };
 
   return (
@@ -49,7 +54,9 @@ export function Navbar() {
           <div className="flex items-center gap-8">
             <Link href="/dashboard" className="flex items-center gap-2">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">EV</span>
+                <span className="text-primary-foreground font-bold text-lg">
+                  EV
+                </span>
               </div>
               <span className="font-semibold text-xl">SDN System</span>
             </Link>
@@ -70,10 +77,10 @@ export function Navbar() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
             >
               {mounted ? (
-                theme === 'dark' ? (
+                theme === "light" ? (
                   <Sun className="h-5 w-5" />
                 ) : (
                   <Moon className="h-5 w-5" />
@@ -90,9 +97,15 @@ export function Navbar() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                <Button
+                  variant="ghost"
+                  className="relative h-10 w-10 rounded-full"
+                >
                   <Avatar>
-                    <AvatarImage src="" alt={user?.profile?.name || user?.email} />
+                    <AvatarImage
+                      src=""
+                      alt={user?.profile?.name || user?.email}
+                    />
                     <AvatarFallback>
                       {getInitials(user?.profile?.name, user?.email)}
                     </AvatarFallback>
@@ -103,7 +116,7 @@ export function Navbar() {
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      {user?.profile?.name || 'User'}
+                      {user?.profile?.name || "User"}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
                       {user?.email}
@@ -139,4 +152,3 @@ export function Navbar() {
     </nav>
   );
 }
-
