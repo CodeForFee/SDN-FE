@@ -13,9 +13,10 @@ import { quoteService, CreateQuoteRequest, QuoteItem } from '@/services/quoteSer
 import { customerService, Customer } from '@/services/customerService';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { vehicleColorService, VehicleColor } from '@/services/vehicleColorService';
+import { promotionService, Promotion } from '@/services/promotionService';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, X } from 'lucide-react';
+import { ArrowLeft, Plus, X, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import {
   Select,
@@ -37,6 +38,9 @@ function CreateQuoteForm() {
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [colors, setColors] = useState<VehicleColor[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [filteredPromotions, setFilteredPromotions] = useState<Promotion[]>([]);
+  const [selectedPromotion, setSelectedPromotion] = useState<string>('');
   const [items, setItems] = useState<QuoteItem[]>([]);
   const [itemErrors, setItemErrors] = useState<Record<number, any>>({});
   const [formErrors, setFormErrors] = useState<any>({});
@@ -59,16 +63,18 @@ function CreateQuoteForm() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [customersData, vehiclesData, colorsData] = await Promise.all([
+        const [customersData, vehiclesData, colorsData, promotionsData] = await Promise.all([
           customerService.getCustomers(),
           vehicleService.getVehicles(),
           vehicleColorService.list(),
+          promotionService.getPromotions(),
         ]);
         
         
         setAllCustomers(customersData);
         setVehicles(vehiclesData);
         setColors(colorsData);
+        setPromotions(promotionsData);
 
         // If vehicle ID provided, pre-select it
         if (vehicleId && vehiclesData.length > 0) {
@@ -134,6 +140,69 @@ function CreateQuoteForm() {
     // Default: show all
     setFilteredCustomers(allCustomers);
   }, [user, allCustomers]);
+
+  // Filter promotions based on dealer, variant, and validity
+  useEffect(() => {
+    if (!promotions.length) {
+      setFilteredPromotions([]);
+      return;
+    }
+
+    const now = new Date();
+    const userDealerId = user ? (typeof user.dealer === 'object' ? user.dealer._id : user.dealer) : null;
+    const selectedVariants = items.map(item => item.variant).filter(Boolean);
+
+    const filtered = promotions.filter((promotion) => {
+      // Only show active promotions
+      if (promotion.status !== 'active') {
+        return false;
+      }
+
+      // Check validity period
+      const validFrom = new Date(promotion.validFrom);
+      const validTo = new Date(promotion.validTo);
+      if (now < validFrom || now > validTo) {
+        return false;
+      }
+
+      // Check scope
+      if (promotion.scope === 'global') {
+        return true;
+      }
+
+      if (promotion.scope === 'byDealer') {
+        if (!userDealerId) return false;
+        const dealerIds = promotion.dealers?.map((d: any) => 
+          typeof d === 'object' ? d._id : d
+        ) || [];
+        return dealerIds.includes(userDealerId);
+      }
+
+      if (promotion.scope === 'byVariant') {
+        if (selectedVariants.length === 0) return false;
+        const variantIds = promotion.variants?.map((v: any) => 
+          typeof v === 'object' ? v._id : v
+        ) || [];
+        return selectedVariants.some(variantId => variantIds.includes(variantId));
+      }
+
+      return false;
+    });
+
+    setFilteredPromotions(filtered);
+  }, [promotions, user, items]);
+
+  // Reset selected promotion if it's no longer in filtered list
+  useEffect(() => {
+    if (selectedPromotion && !filteredPromotions.some(p => p._id === selectedPromotion)) {
+      setSelectedPromotion('');
+      setFormData(prev => ({ 
+        ...prev, 
+        discount: 0,
+        promotionTotal: 0 
+      }));
+    }
+  }, [filteredPromotions, selectedPromotion]);
 
   useEffect(() => {
     // Calculate totals
@@ -459,6 +528,67 @@ function CreateQuoteForm() {
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="promotion">Promotion</Label>
+                    {selectedPromotion && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => {
+                          setSelectedPromotion('');
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            discount: 0,
+                            promotionTotal: 0 
+                          }));
+                        }}
+                      >
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  <Select
+                    value={selectedPromotion || undefined}
+                    onValueChange={(value) => {
+                      setSelectedPromotion(value);
+                      const promotion = filteredPromotions.find(p => p._id === value);
+                      if (promotion) {
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          discount: promotion.value,
+                          promotionTotal: promotion.value 
+                        }));
+                      } else {
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          discount: 0,
+                          promotionTotal: 0 
+                        }));
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select promotion" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredPromotions.length === 0 ? (
+                        <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                          No promotions available
+                        </div>
+                      ) : (
+                        filteredPromotions.map((promotion) => (
+                          <SelectItem key={promotion._id} value={promotion._id}>
+                            {promotion.name} - ${promotion.value.toLocaleString()}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="discount">Discount</Label>
                   <Input
                     id="discount"
@@ -466,18 +596,9 @@ function CreateQuoteForm() {
                     min="0"
                     step="1000"
                     value={formData.discount || 0}
-                    onChange={(e) => setFormData({ ...formData, discount: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="promotionTotal">Promotion Total</Label>
-                  <Input
-                    id="promotionTotal"
-                    type="number"
-                    min="0"
-                    step="1000"
-                    value={formData.promotionTotal || 0}
-                    onChange={(e) => setFormData({ ...formData, promotionTotal: Number(e.target.value) })}
+                    readOnly
+                    disabled
+                    className="bg-muted cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-2">
