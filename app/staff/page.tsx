@@ -69,20 +69,14 @@ export default function StaffPage() {
   const fetchStaff = async () => {
     try {
       const data = await userService.getDealerStaff();
-
-      const filteredStaff =
-        user?.role === "DealerManager"
-          ? data.filter((s) => {
-              const dealerId =
-                typeof s.dealer === "string" ? s.dealer : s.dealer?._id;
-              return dealerId === currentDealerId;
-            })
-          : data;
-
-      setStaff(filteredStaff);
-    } catch (error) {
-      console.error("Failed to fetch staff:", error);
-      toast.error("Failed to load staff");
+      setStaff(data);
+    } catch (error: any) {
+      
+      if (error?.response?.status === 403) {
+        toast.error('You do not have permission to view staff');
+      } else {
+        toast.error(error?.response?.data?.message || 'Failed to load staff');
+      }
     } finally {
       setLoading(false);
     }
@@ -203,22 +197,6 @@ export default function StaffPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Phone</Label>
-                    <Input
-                      value={formData.profile?.phone || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          profile: {
-                            ...formData.profile,
-                            phone: e.target.value,
-                          },
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2">
                     <Label>Role</Label>
                     <Select
                       value={formData.role}
@@ -301,35 +279,40 @@ export default function StaffPage() {
         {/* Staff Table */}
         <Card className="rounded-2xl shadow-md">
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Dealer</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {staff.map((member, index) => (
-                  <motion.tr
-                    key={member._id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    <TableCell>{member.email}</TableCell>
-                    <TableCell>{member.profile?.name || "N/A"}</TableCell>
-                    <TableCell>{member.profile?.phone || "N/A"}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{member.role}</Badge>
-                    </TableCell>
-                    <TableCell>{member.dealer?.name || "N/A"}</TableCell>
-                  </motion.tr>
-                ))}
-              </TableBody>
-            </Table>
+            {staff.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                <p>No staff members found.</p>
+                <p className="text-sm mt-2">Click "Add Staff" to create a new staff member.</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Dealer</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {staff.map((member, index) => (
+                    <motion.tr
+                      key={member._id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <TableCell>{member.email}</TableCell>
+                      <TableCell>{member.profile?.name || "N/A"}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{member.role}</Badge>
+                      </TableCell>
+                      <TableCell>{member.dealer?.name || "N/A"}</TableCell>
+                    </motion.tr>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
