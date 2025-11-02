@@ -27,14 +27,16 @@ import {
   dealerService,
   Dealer,
   CreateDealerRequest,
+  UpdateSaleTarget,
 } from "@/services/dealerService";
-import { Plus, Edit, Trash2, Building2 } from "lucide-react";
+import { Plus, Edit, Trash2, Building2, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 export default function DealersPage() {
   const [dealers, setDealers] = useState<Dealer[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [open, setOpen] = useState(false);
   const [editingDealer, setEditingDealer] = useState<Dealer | null>(null);
   const [formData, setFormData] = useState<CreateDealerRequest>({
@@ -46,6 +48,12 @@ export default function DealersPage() {
     creditLimit: 0,
     status: "active",
   });
+
+  const [salesTargetDialogOpen, setSalesTargetDialogOpen] = useState(false);
+  const [salesTargetDealer, setSalesTargetDealer] = useState<Dealer | null>(
+    null
+  );
+  const [salesTargetInput, setSalesTargetInput] = useState<number>(0);
 
   useEffect(() => {
     fetchDealers();
@@ -156,8 +164,40 @@ export default function DealersPage() {
     }
   };
 
+  const handleOpenSalesTargetDialog = (dealer: Dealer) => {
+    setSalesTargetDealer(dealer);
+    setSalesTargetInput(dealer.salesTarget || 0);
+    setSalesTargetDialogOpen(true);
+  };
+
+  const handleUpdateSalesTarget = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!salesTargetDealer) return;
+
+    const newTarget = Number(salesTargetInput);
+    if (newTarget < 0) {
+      toast.error("Sales Target must be zero or greater.");
+      return;
+    }
+
+    const payload: UpdateSaleTarget = { salesTarget: newTarget };
+
+    try {
+      await dealerService.updateSalesTarget(salesTargetDealer._id, payload);
+      toast.success(
+        `Sales Target for ${salesTargetDealer.name} updated successfully`
+      );
+      setSalesTargetDialogOpen(false);
+      fetchDealers();
+    } catch (error: any) {
+      toast.error(
+        error.response?.data?.message || "Failed to update Sales Target"
+      );
+    }
+  };
+
   const handleDelete = async (dealerId: string) => {
-    if (!confirm("Are you sure you want to delete this dealer?")) return;
+    if (!window.confirm("Are you sure you want to delete this dealer?")) return;
     try {
       await dealerService.deleteDealer(dealerId);
       toast.success("Dealer deleted successfully");
@@ -170,7 +210,11 @@ export default function DealersPage() {
   if (loading)
     return (
       <MainLayout>
-        <div className="flex items-center justify-center h-64">Loading...</div>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-xl text-primary font-semibold">
+            Loading Dealers...
+          </p>
+        </div>
       </MainLayout>
     );
 
@@ -180,15 +224,20 @@ export default function DealersPage() {
         {/* Header + Add Dealer */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Dealer Management</h1>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Building2 className="h-7 w-7 text-primary" /> Dealer Management
+            </h1>
             <p className="text-muted-foreground">Manage dealerships</p>
           </div>
+
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => handleOpenDialog()}>
                 <Plus className="mr-2 h-4 w-4" /> Add Dealer
               </Button>
             </DialogTrigger>
+
+            {/* Dialog Content for Create/Edit Dealer */}
             <DialogContent className="rounded-2xl max-w-2xl">
               <form onSubmit={handleSubmit}>
                 <DialogHeader>
@@ -198,27 +247,29 @@ export default function DealersPage() {
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Dealer Name</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Dealer Name</Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) =>
+                          setFormData({ ...formData, name: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="code">Code</Label>
-                    <Input
-                      id="code"
-                      value={formData.code}
-                      onChange={(e) =>
-                        setFormData({ ...formData, code: e.target.value })
-                      }
-                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="code">Code</Label>
+                      <Input
+                        id="code"
+                        value={formData.code}
+                        onChange={(e) =>
+                          setFormData({ ...formData, code: e.target.value })
+                        }
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -233,24 +284,43 @@ export default function DealersPage() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="region">Region</Label>
-                    <Input
-                      id="region"
-                      value={formData.region}
-                      onChange={(e) =>
-                        setFormData({ ...formData, region: e.target.value })
-                      }
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="region">Region</Label>
+                      <Input
+                        id="region"
+                        value={formData.region}
+                        onChange={(e) =>
+                          setFormData({ ...formData, region: e.target.value })
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="creditLimit">Credit Limit</Label>
+                      <Input
+                        id="creditLimit"
+                        type="number"
+                        value={formData.creditLimit || 0}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            creditLimit: Number(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
                   </div>
 
-                  {/* Contacts - nhập tay */}
-                  <div className="space-y-2">
-                    <Label>Contacts</Label>
+                  {/* Contacts */}
+                  <div className="space-y-2 border p-3 rounded-lg">
+                    <Label className="text-lg font-semibold block mb-2">
+                      Contacts
+                    </Label>
                     {formData.contacts?.map((c, i) => (
                       <div
                         key={i}
-                        className="grid grid-cols-4 gap-2 mb-2 items-end"
+                        className="grid grid-cols-5 gap-2 mb-2 items-end"
                       >
                         <Input
                           placeholder="Name"
@@ -274,33 +344,27 @@ export default function DealersPage() {
                             handleContactChange(i, "email", e.target.value)
                           }
                         />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          onClick={() => handleRemoveContact(i)}
-                        >
-                          Remove
-                        </Button>
+                        <div className="col-span-1">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => handleRemoveContact(i)}
+                            disabled={formData.contacts.length <= 1}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
-                    <Button type="button" onClick={handleAddContact}>
-                      Add Contact
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddContact}
+                    >
+                      <Plus className="mr-2 h-4 w-4" /> Add Contact
                     </Button>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="creditLimit">Credit Limit</Label>
-                    <Input
-                      id="creditLimit"
-                      type="number"
-                      value={formData.creditLimit || 0}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          creditLimit: Number(e.target.value),
-                        })
-                      }
-                    />
                   </div>
 
                   <div className="space-y-2">
@@ -335,6 +399,40 @@ export default function DealersPage() {
           </Dialog>
         </div>
 
+        {/* Dialog Cập nhật Sales Target */}
+        <Dialog
+          open={salesTargetDialogOpen}
+          onOpenChange={setSalesTargetDialogOpen}
+        >
+          <DialogContent className="sm:max-w-[425px] rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Update Sales Target</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleUpdateSalesTarget}>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="target">
+                    Sales Target for {salesTargetDealer?.name}
+                  </Label>
+                  <Input
+                    id="target"
+                    type="number"
+                    min="0"
+                    value={salesTargetInput}
+                    onChange={(e) =>
+                      setSalesTargetInput(Number(e.target.value))
+                    }
+                    required
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit">Update Target</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         {/* Dealers Table */}
         <Card className="rounded-2xl shadow-md">
           <CardContent className="p-0">
@@ -360,7 +458,7 @@ export default function DealersPage() {
                     transition={{ delay: index * 0.05 }}
                   >
                     <TableCell className="font-medium flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />{" "}
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
                       {dealer.name}
                     </TableCell>
                     <TableCell>{dealer.code}</TableCell>
@@ -374,11 +472,12 @@ export default function DealersPage() {
                               <div className="font-medium">
                                 {c.name || "N/A"}
                               </div>
-                              <div>{c.phone || "N/A"}</div>
                               <div className="text-muted-foreground">
-                                {c.email || "N/A"}
+                                {c.phone || "N/A"}
                               </div>
-                              <hr className="my-1 border-t border-gray-200" />
+                              {idx < dealer.contacts.length - 1 && (
+                                <hr className="my-1 border-t border-gray-100" />
+                              )}
                             </div>
                           ))
                         ) : (
@@ -386,7 +485,7 @@ export default function DealersPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="font-semibold text-primary">
                       ${dealer.salesTarget?.toLocaleString() || "0"}
                     </TableCell>
                     <TableCell>
@@ -394,15 +493,29 @@ export default function DealersPage() {
                         variant={
                           dealer.status === "active" ? "default" : "secondary"
                         }
+                        className={
+                          dealer.status === "inactive"
+                            ? "bg-red-100 text-red-600 hover:bg-red-100"
+                            : ""
+                        }
                       >
                         {dealer.status || "active"}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
+                          title="Update Sales Target"
+                          onClick={() => handleOpenSalesTargetDialog(dealer)}
+                        >
+                          <TrendingUp className="h-4 w-4 text-orange-500" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Edit Dealer Details"
                           onClick={() => handleOpenDialog(dealer)}
                         >
                           <Edit className="h-4 w-4" />
@@ -410,6 +523,7 @@ export default function DealersPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          title="Delete Dealer"
                           onClick={() => handleDelete(dealer._id)}
                           className="text-destructive hover:text-destructive"
                         >

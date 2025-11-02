@@ -33,6 +33,10 @@ export interface CreateDealerRequest {
   status: "active" | "inactive";
 }
 
+export interface UpdateSaleTarget {
+  salesTarget: number;
+}
+
 export const dealerService = {
   getDealers: async (): Promise<Dealer[]> => {
     const response = await api.get("/dealers");
@@ -56,6 +60,14 @@ export const dealerService = {
     data: Partial<CreateDealerRequest>
   ): Promise<Dealer> => {
     const response = await api.patch(`/dealers/${id}`, data);
+    return response.data;
+  },
+
+  updateSalesTarget: async (
+    id: string,
+    data: UpdateSaleTarget
+  ): Promise<Dealer> => {
+    const response = await api.put(`/dealers/${id}/target`, data);
     return response.data;
   },
 
