@@ -1,37 +1,50 @@
-'use client';
+"use client";
 
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { MainLayout } from '@/components/layout/main-layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { quoteService, CreateQuoteRequest, QuoteItem } from '@/services/quoteService';
-import { customerService, Customer } from '@/services/customerService';
-import { vehicleService, Vehicle } from '@/services/vehicleService';
-import { vehicleColorService, VehicleColor } from '@/services/vehicleColorService';
-import { promotionService, Promotion } from '@/services/promotionService';
-import { useAuthStore } from '@/stores/authStore';
-import { toast } from 'sonner';
-import { ArrowLeft, Plus, X, XCircle } from 'lucide-react';
-import Link from 'next/link';
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { MainLayout } from "@/components/layout/main-layout";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  quoteService,
+  CreateQuoteRequest,
+  QuoteItem,
+} from "@/services/quoteService";
+import { customerService, Customer } from "@/services/customerService";
+import { vehicleService, Vehicle } from "@/services/vehicleService";
+import {
+  vehicleColorService,
+  VehicleColor,
+} from "@/services/vehicleColorService";
+import { promotionService, Promotion } from "@/services/promotionService";
+import { useAuthStore } from "@/stores/authStore";
+import { toast } from "sonner";
+import { ArrowLeft, Plus, X, XCircle } from "lucide-react";
+import Link from "next/link";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import * as Yup from 'yup';
-import { quoteItemSchema, feesSchema } from '@/validations/quoteSchema';
+} from "@/components/ui/select";
+import * as Yup from "yup";
+import { quoteItemSchema, feesSchema } from "@/validations/quoteSchema";
 
 function CreateQuoteForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const vehicleId = searchParams?.get('vehicle');
+  const vehicleId = searchParams?.get("vehicle");
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
@@ -40,37 +53,37 @@ function CreateQuoteForm() {
   const [colors, setColors] = useState<VehicleColor[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [filteredPromotions, setFilteredPromotions] = useState<Promotion[]>([]);
-  const [selectedPromotion, setSelectedPromotion] = useState<string>('');
+  const [selectedPromotion, setSelectedPromotion] = useState<string>("");
   const [items, setItems] = useState<QuoteItem[]>([]);
   const [itemErrors, setItemErrors] = useState<Record<number, any>>({});
   const [formErrors, setFormErrors] = useState<any>({});
   const [formData, setFormData] = useState<Partial<CreateQuoteRequest>>({
-    customer: '',
+    customer: "",
     items: [],
     subtotal: 0,
-    discount: 0,
-    promotionTotal: 0,
+    discount: 0, // Dành cho Manual Discount
+    promotionTotal: 0, // Dành cho Promotion Discount
     fees: {
       registration: 0,
       plate: 0,
       delivery: 0,
     },
     total: 0,
-    validUntil: '',
-    notes: '',
+    validUntil: "",
+    notes: "",
   });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [customersData, vehiclesData, colorsData, promotionsData] = await Promise.all([
-          customerService.getCustomers(),
-          vehicleService.getVehicles(),
-          vehicleColorService.list(),
-          promotionService.getPromotions(),
-        ]);
-        
-        
+        const [customersData, vehiclesData, colorsData, promotionsData] =
+          await Promise.all([
+            customerService.getCustomers(),
+            vehicleService.getVehicles(),
+            vehicleColorService.list(),
+            promotionService.getPromotions(),
+          ]);
+
         setAllCustomers(customersData);
         setVehicles(vehiclesData);
         setColors(colorsData);
@@ -78,19 +91,21 @@ function CreateQuoteForm() {
 
         // If vehicle ID provided, pre-select it
         if (vehicleId && vehiclesData.length > 0) {
-          const vehicle = vehiclesData.find(v => v._id === vehicleId);
+          const vehicle = vehiclesData.find((v) => v._id === vehicleId);
           if (vehicle) {
-            setItems([{
-              variant: vehicleId,
-              color: '',
-              qty: 1,
-              unitPrice: vehicle.msrp || 0,
-            }]);
+            setItems([
+              {
+                variant: vehicleId,
+                color: "",
+                qty: 1,
+                unitPrice: vehicle.msrp || 0,
+              },
+            ]);
           }
         }
       } catch (error) {
-        console.error('Failed to fetch data:', error);
-        toast.error('Failed to load data');
+        console.error("Failed to fetch data:", error);
+        toast.error("Failed to load data");
       }
     };
     fetchData();
@@ -104,33 +119,28 @@ function CreateQuoteForm() {
     }
 
     // Admin and EVMStaff can see all customers
-    if (user.role === 'Admin' || user.role === 'EVMStaff') {
+    if (user.role === "Admin" || user.role === "EVMStaff") {
       setFilteredCustomers(allCustomers);
       return;
     }
 
     // DealerStaff and DealerManager only see customers from their dealer
-    if (user.role === 'DealerStaff' || user.role === 'DealerManager') {
-      const userDealerId = typeof user.dealer === 'object' ? user.dealer._id : user.dealer;
-      
+    if (user.role === "DealerStaff" || user.role === "DealerManager") {
+      const userDealerId =
+        typeof user.dealer === "object" ? user.dealer._id : user.dealer;
+
       const dealerCustomers = allCustomers.filter((customer: any) => {
         // If customer doesn't have ownerDealer (old data), show it to all dealers
         if (!customer.ownerDealer) {
           return true;
         }
-        
-        const customerDealerId = typeof customer.ownerDealer === 'object' 
-          ? customer.ownerDealer._id 
-          : customer.ownerDealer;
-        
-        return customerDealerId === userDealerId;
-      });
 
-      console.log('[CreateQuote] Dealer filtering:', {
-        userDealerId,
-        totalCustomers: allCustomers.length,
-        dealerCustomers: dealerCustomers.length,
-        customersWithoutDealer: allCustomers.filter((c: any) => !c.ownerDealer).length,
+        const customerDealerId =
+          typeof customer.ownerDealer === "object"
+            ? customer.ownerDealer._id
+            : customer.ownerDealer;
+
+        return customerDealerId === userDealerId;
       });
 
       setFilteredCustomers(dealerCustomers);
@@ -149,12 +159,16 @@ function CreateQuoteForm() {
     }
 
     const now = new Date();
-    const userDealerId = user ? (typeof user.dealer === 'object' ? user.dealer._id : user.dealer) : null;
-    const selectedVariants = items.map(item => item.variant).filter(Boolean);
+    const userDealerId = user
+      ? typeof user.dealer === "object"
+        ? user.dealer._id
+        : user.dealer
+      : null;
+    const selectedVariants = items.map((item) => item.variant).filter(Boolean);
 
     const filtered = promotions.filter((promotion) => {
       // Only show active promotions
-      if (promotion.status !== 'active') {
+      if (promotion.status !== "active") {
         return false;
       }
 
@@ -166,24 +180,28 @@ function CreateQuoteForm() {
       }
 
       // Check scope
-      if (promotion.scope === 'global') {
+      if (promotion.scope === "global") {
         return true;
       }
 
-      if (promotion.scope === 'byDealer') {
+      if (promotion.scope === "byDealer") {
         if (!userDealerId) return false;
-        const dealerIds = promotion.dealers?.map((d: any) => 
-          typeof d === 'object' ? d._id : d
-        ) || [];
+        const dealerIds =
+          promotion.dealers?.map((d: any) =>
+            typeof d === "object" ? d._id : d
+          ) || [];
         return dealerIds.includes(userDealerId);
       }
 
-      if (promotion.scope === 'byVariant') {
+      if (promotion.scope === "byVariant") {
         if (selectedVariants.length === 0) return false;
-        const variantIds = promotion.variants?.map((v: any) => 
-          typeof v === 'object' ? v._id : v
-        ) || [];
-        return selectedVariants.some(variantId => variantIds.includes(variantId));
+        const variantIds =
+          promotion.variants?.map((v: any) =>
+            typeof v === "object" ? v._id : v
+          ) || [];
+        return selectedVariants.some((variantId) =>
+          variantIds.includes(variantId)
+        );
       }
 
       return false;
@@ -192,38 +210,62 @@ function CreateQuoteForm() {
     setFilteredPromotions(filtered);
   }, [promotions, user, items]);
 
-  // Reset selected promotion if it's no longer in filtered list
+  // Reset selected promotion if it's no longer in filtered list, AND clear discount/promotionTotal
   useEffect(() => {
-    if (selectedPromotion && !filteredPromotions.some(p => p._id === selectedPromotion)) {
-      setSelectedPromotion('');
-      setFormData(prev => ({ 
-        ...prev, 
-        discount: 0,
-        promotionTotal: 0 
+    if (
+      selectedPromotion &&
+      !filteredPromotions.some((p) => p._id === selectedPromotion)
+    ) {
+      setSelectedPromotion("");
+      setFormData((prev) => ({
+        ...prev,
+        discount: 0, // Đặt discount về 0
+        promotionTotal: 0, // Đặt promotionTotal về 0
       }));
     }
   }, [filteredPromotions, selectedPromotion]);
 
+  // Calculate totals
   useEffect(() => {
-    // Calculate totals
-    const subtotal = items.reduce((sum, item) => sum + (item.unitPrice * item.qty), 0);
-    const feesTotal = (formData.fees?.registration || 0) + (formData.fees?.plate || 0) + (formData.fees?.delivery || 0);
-    const total = subtotal - (formData.discount || 0) - (formData.promotionTotal || 0) + feesTotal;
-    
+    const subtotal = items.reduce(
+      (sum, item) => sum + item.unitPrice * item.qty,
+      0
+    );
+
+    // SỬA LỖI: Tổng giảm giá là tổng của Manual Discount và Promotion Total
+    const totalDiscount =
+      (formData.discount || 0) + (formData.promotionTotal || 0);
+
+    const feesTotal =
+      (formData.fees?.registration || 0) +
+      (formData.fees?.plate || 0) +
+      (formData.fees?.delivery || 0);
+    const total = subtotal - totalDiscount + feesTotal;
+
     setFormData((prev) => ({
       ...prev,
       subtotal,
       total,
     }));
-  }, [items, formData.discount, formData.promotionTotal, formData.fees?.registration, formData.fees?.plate, formData.fees?.delivery]);
+  }, [
+    items,
+    formData.discount,
+    formData.promotionTotal,
+    formData.fees?.registration,
+    formData.fees?.plate,
+    formData.fees?.delivery,
+  ]);
 
   const addItem = () => {
-    setItems([...items, {
-      variant: '',
-      color: '',
-      qty: 1,
-      unitPrice: 0,
-    }]);
+    setItems([
+      ...items,
+      {
+        variant: "",
+        color: "",
+        qty: 1,
+        unitPrice: 0,
+      },
+    ]);
   };
 
   const removeItem = (index: number) => {
@@ -233,17 +275,17 @@ function CreateQuoteForm() {
   const updateItem = (index: number, field: keyof QuoteItem, value: any) => {
     const updatedItems = [...items];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
-    
+
     // Auto-fill unitPrice from vehicle msrp
-    if (field === 'variant' && value) {
-      const vehicle = vehicles.find(v => v._id === value);
+    if (field === "variant" && value) {
+      const vehicle = vehicles.find((v) => v._id === value);
       if (vehicle) {
         updatedItems[index].unitPrice = vehicle.msrp || 0;
       }
     }
-    
+
     setItems(updatedItems);
-    
+
     // Validate item on change
     validateItem(index, updatedItems[index]);
   };
@@ -290,21 +332,21 @@ function CreateQuoteForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.customer) {
-      toast.error('Please select a customer');
+      toast.error("Please select a customer");
       return;
     }
 
     if (items.length === 0) {
-      toast.error('Please add at least one item');
+      toast.error("Please add at least one item");
       return;
     }
 
     // Validate all items
     let hasErrors = false;
     const newErrors: Record<number, any> = {};
-    
+
     for (let i = 0; i < items.length; i++) {
       try {
         await quoteItemSchema.validate(items[i], { abortEarly: false });
@@ -328,7 +370,7 @@ function CreateQuoteForm() {
     const feesValid = await validateFees();
 
     if (hasErrors || !feesValid) {
-      toast.error('Please fix validation errors before submitting');
+      toast.error("Please fix validation errors before submitting");
       return;
     }
 
@@ -346,19 +388,42 @@ function CreateQuoteForm() {
         validUntil: formData.validUntil,
         notes: formData.notes,
       } as CreateQuoteRequest);
-      toast.success('Quote created successfully');
-      router.push('/quotes');
+      toast.success("Quote created successfully");
+      router.push("/quotes");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to create quote');
+      toast.error(error.response?.data?.message || "Failed to create quote");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // SỬA LỖI: Cập nhật formData khi chọn promotion
+  const handlePromotionChange = (value: string) => {
+    setSelectedPromotion(value);
+    const promotion = filteredPromotions.find((p) => p._id === value);
+    if (promotion) {
+      setFormData((prev) => ({
+        ...prev,
+        // Giữ nguyên discount thủ công (prev.discount),
+        // chỉ cập nhật promotionTotal
+        promotionTotal: promotion.value,
+      }));
+    } else {
+      // Khi clear promotion, chỉ reset promotionTotal
+      setFormData((prev) => ({
+        ...prev,
+        promotionTotal: 0,
+      }));
     }
   };
 
   return (
     <MainLayout>
       <div className="space-y-6 max-w-5xl">
-        <Link href="/quotes" className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
+        <Link
+          href="/quotes"
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft className="h-4 w-4" />
           Back to Quotes
         </Link>
@@ -374,17 +439,27 @@ function CreateQuoteForm() {
                 <Label htmlFor="customer">Customer *</Label>
                 <Select
                   value={formData.customer as string}
-                  onValueChange={(value) => setFormData({ ...formData, customer: value })}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, customer: value })
+                  }
                   required
                   disabled={filteredCustomers.length === 0}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={filteredCustomers.length === 0 ? "No customers available" : "Select customer"} />
+                    <SelectValue
+                      placeholder={
+                        filteredCustomers.length === 0
+                          ? "No customers available"
+                          : "Select customer"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {filteredCustomers.length === 0 ? (
                       <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                        {allCustomers.length === 0 ? 'No customers available' : 'No customers for your dealer'}
+                        {allCustomers.length === 0
+                          ? "No customers available"
+                          : "No customers found for your dealer"}
                       </div>
                     ) : (
                       filteredCustomers.map((customer) => (
@@ -397,9 +472,9 @@ function CreateQuoteForm() {
                 </Select>
                 {filteredCustomers.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    {allCustomers.length === 0 
-                      ? 'Please create a customer first before creating a quote.' 
-                      : 'No customers found for your dealer. Please create customers from the Customers page.'}
+                    {allCustomers.length === 0
+                      ? "Please create a customer first before creating a quote."
+                      : "No customers found for your dealer. Please create customers from the Customers page."}
                   </p>
                 )}
               </div>
@@ -407,17 +482,23 @@ function CreateQuoteForm() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label>Items *</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addItem}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addItem}
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Add Item
                   </Button>
                 </div>
 
                 {items.map((item, index) => {
-                  const vehicle = vehicles.find(v => v._id === item.variant);
-                  const vehicleModel = typeof vehicle?.model === 'object' ? vehicle.model : null;
+                  const vehicle = vehicles.find((v) => v._id === item.variant);
+                  const vehicleModel =
+                    typeof vehicle?.model === "object" ? vehicle.model : null;
                   const errors = itemErrors[index] || {};
-                  
+
                   return (
                     <Card key={index} className="rounded-2xl">
                       <CardContent className="p-4 space-y-4">
@@ -438,7 +519,9 @@ function CreateQuoteForm() {
                             <Label>Vehicle Variant *</Label>
                             <Select
                               value={item.variant}
-                              onValueChange={(value) => updateItem(index, 'variant', value)}
+                              onValueChange={(value) =>
+                                updateItem(index, "variant", value)
+                              }
                               required
                             >
                               <SelectTrigger>
@@ -446,25 +529,33 @@ function CreateQuoteForm() {
                               </SelectTrigger>
                               <SelectContent>
                                 {vehicles.map((v) => {
-                                  const modelName = typeof v.model === 'object' ? v.model?.name : 'Unknown';
+                                  const modelName =
+                                    typeof v.model === "object"
+                                      ? v.model?.name
+                                      : "Unknown";
                                   return (
                                     <SelectItem key={v._id} value={v._id}>
-                                      {modelName} - {v.trim} (${(v.msrp || 0).toLocaleString()})
+                                      {modelName} - {v.trim} ($
+                                      {(v.msrp || 0).toLocaleString()})
                                     </SelectItem>
                                   );
                                 })}
                               </SelectContent>
                             </Select>
                             {errors.variant && (
-                              <p className="text-sm text-red-500">{errors.variant}</p>
+                              <p className="text-sm text-red-500">
+                                {errors.variant}
+                              </p>
                             )}
                           </div>
 
                           <div className="space-y-2">
                             <Label>Color *</Label>
                             <Select
-                              value={item.color || ''}
-                              onValueChange={(value) => updateItem(index, 'color', value)}
+                              value={item.color || ""}
+                              onValueChange={(value) =>
+                                updateItem(index, "color", value)
+                              }
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="Select color" />
@@ -478,7 +569,9 @@ function CreateQuoteForm() {
                               </SelectContent>
                             </Select>
                             {errors.color && (
-                              <p className="text-sm text-red-500">{errors.color}</p>
+                              <p className="text-sm text-red-500">
+                                {errors.color}
+                              </p>
                             )}
                           </div>
 
@@ -488,11 +581,15 @@ function CreateQuoteForm() {
                               type="number"
                               min="1"
                               value={item.qty}
-                              onChange={(e) => updateItem(index, 'qty', Number(e.target.value))}
+                              onChange={(e) =>
+                                updateItem(index, "qty", Number(e.target.value))
+                              }
                               required
                             />
                             {errors.qty && (
-                              <p className="text-sm text-red-500">{errors.qty}</p>
+                              <p className="text-sm text-red-500">
+                                {errors.qty}
+                              </p>
                             )}
                           </div>
 
@@ -508,16 +605,27 @@ function CreateQuoteForm() {
                               className="bg-muted cursor-not-allowed"
                             />
                             {errors.unitPrice && (
-                              <p className="text-sm text-red-500">{errors.unitPrice}</p>
+                              <p className="text-sm text-red-500">
+                                {errors.unitPrice}
+                              </p>
                             )}
                           </div>
                         </div>
 
                         {vehicle && (
                           <div className="text-sm text-muted-foreground">
-                            <p><strong>Model:</strong> {vehicleModel?.name || 'N/A'}</p>
-                            <p><strong>Trim:</strong> {vehicle.trim}</p>
-                            {vehicle.range && <p><strong>Range:</strong> {vehicle.range} km</p>}
+                            <p>
+                              <strong>Model:</strong>{" "}
+                              {vehicleModel?.name || "N/A"}
+                            </p>
+                            <p>
+                              <strong>Trim:</strong> {vehicle.trim}
+                            </p>
+                            {vehicle.range && (
+                              <p>
+                                <strong>Range:</strong> {vehicle.range} km
+                              </p>
+                            )}
                           </div>
                         )}
                       </CardContent>
@@ -536,14 +644,7 @@ function CreateQuoteForm() {
                         variant="ghost"
                         size="sm"
                         className="h-6 px-2 text-xs"
-                        onClick={() => {
-                          setSelectedPromotion('');
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            discount: 0,
-                            promotionTotal: 0 
-                          }));
-                        }}
+                        onClick={() => handlePromotionChange("")}
                       >
                         <XCircle className="h-3 w-3 mr-1" />
                         Clear
@@ -552,23 +653,7 @@ function CreateQuoteForm() {
                   </div>
                   <Select
                     value={selectedPromotion || undefined}
-                    onValueChange={(value) => {
-                      setSelectedPromotion(value);
-                      const promotion = filteredPromotions.find(p => p._id === value);
-                      if (promotion) {
-                        setFormData(prev => ({ 
-                          ...prev, 
-                          discount: promotion.value,
-                          promotionTotal: promotion.value 
-                        }));
-                      } else {
-                        setFormData(prev => ({ 
-                          ...prev, 
-                          discount: 0,
-                          promotionTotal: 0 
-                        }));
-                      }
-                    }}
+                    onValueChange={handlePromotionChange}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select promotion" />
@@ -581,7 +666,8 @@ function CreateQuoteForm() {
                       ) : (
                         filteredPromotions.map((promotion) => (
                           <SelectItem key={promotion._id} value={promotion._id}>
-                            {promotion.name} - ${promotion.value.toLocaleString()}
+                            {promotion.name} - $
+                            {promotion.value.toLocaleString()}
                           </SelectItem>
                         ))
                       )}
@@ -589,16 +675,19 @@ function CreateQuoteForm() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="discount">Discount</Label>
+                  <Label htmlFor="discount">Discount (Manual)</Label>
                   <Input
                     id="discount"
                     type="number"
                     min="0"
                     step="1000"
                     value={formData.discount || 0}
-                    readOnly
-                    disabled
-                    className="bg-muted cursor-not-allowed"
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        discount: Number(e.target.value),
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -606,8 +695,10 @@ function CreateQuoteForm() {
                   <Input
                     id="validUntil"
                     type="date"
-                    value={formData.validUntil || ''}
-                    onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
+                    value={formData.validUntil || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, validUntil: e.target.value })
+                    }
                   />
                 </div>
               </div>
@@ -623,13 +714,20 @@ function CreateQuoteForm() {
                       min="0"
                       step="1000"
                       value={formData.fees?.registration || 0}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        fees: { ...formData.fees, registration: Number(e.target.value) },
-                      })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          fees: {
+                            ...formData.fees,
+                            registration: Number(e.target.value),
+                          },
+                        })
+                      }
                     />
-                    {formErrors['fees.registration'] && (
-                      <p className="text-sm text-red-500">{formErrors['fees.registration']}</p>
+                    {formErrors["fees.registration"] && (
+                      <p className="text-sm text-red-500">
+                        {formErrors["fees.registration"]}
+                      </p>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -640,13 +738,20 @@ function CreateQuoteForm() {
                       min="0"
                       step="1000"
                       value={formData.fees?.plate || 0}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        fees: { ...formData.fees, plate: Number(e.target.value) },
-                      })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          fees: {
+                            ...formData.fees,
+                            plate: Number(e.target.value),
+                          },
+                        })
+                      }
                     />
-                    {formErrors['fees.plate'] && (
-                      <p className="text-sm text-red-500">{formErrors['fees.plate']}</p>
+                    {formErrors["fees.plate"] && (
+                      <p className="text-sm text-red-500">
+                        {formErrors["fees.plate"]}
+                      </p>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -657,13 +762,20 @@ function CreateQuoteForm() {
                       min="0"
                       step="1000"
                       value={formData.fees?.delivery || 0}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        fees: { ...formData.fees, delivery: Number(e.target.value) },
-                      })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          fees: {
+                            ...formData.fees,
+                            delivery: Number(e.target.value),
+                          },
+                        })
+                      }
                     />
-                    {formErrors['fees.delivery'] && (
-                      <p className="text-sm text-red-500">{formErrors['fees.delivery']}</p>
+                    {formErrors["fees.delivery"] && (
+                      <p className="text-sm text-red-500">
+                        {formErrors["fees.delivery"]}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -673,8 +785,10 @@ function CreateQuoteForm() {
                 <Label htmlFor="notes">Notes</Label>
                 <Textarea
                   id="notes"
-                  value={formData.notes || ''}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  value={formData.notes || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
                 />
               </div>
 
@@ -686,17 +800,24 @@ function CreateQuoteForm() {
                       <span>${(formData.subtotal || 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Discount:</span>
+                      <span>Discount (Manual):</span>
                       <span>-${(formData.discount || 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Promotion:</span>
-                      <span>-${(formData.promotionTotal || 0).toLocaleString()}</span>
+                      <span>Promotion Discount:</span>
+                      <span>
+                        -${(formData.promotionTotal || 0).toLocaleString()}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Fees:</span>
                       <span>
-                        ${((formData.fees?.registration || 0) + (formData.fees?.plate || 0) + (formData.fees?.delivery || 0)).toLocaleString()}
+                        $
+                        {(
+                          (formData.fees?.registration || 0) +
+                          (formData.fees?.plate || 0) +
+                          (formData.fees?.delivery || 0)
+                        ).toLocaleString()}
                       </span>
                     </div>
                     <div className="flex justify-between text-lg font-bold pt-2 border-t">
@@ -708,11 +829,15 @@ function CreateQuoteForm() {
               </Card>
 
               <div className="flex gap-4 pt-4">
-                <Button type="button" variant="outline" onClick={() => router.back()}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.back()}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={loading || items.length === 0}>
-                  {loading ? 'Creating...' : 'Create Quote'}
+                  {loading ? "Creating..." : "Create Quote"}
                 </Button>
               </div>
             </form>
@@ -725,13 +850,16 @@ function CreateQuoteForm() {
 
 export default function CreateQuotePage() {
   return (
-    <Suspense fallback={
-      <MainLayout>
-        <div className="flex items-center justify-center h-64">Loading...</div>
-      </MainLayout>
-    }>
+    <Suspense
+      fallback={
+        <MainLayout>
+          <div className="flex items-center justify-center h-64">
+            Loading...
+          </div>
+        </MainLayout>
+      }
+    >
       <CreateQuoteForm />
     </Suspense>
   );
 }
-
